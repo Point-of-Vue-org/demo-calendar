@@ -1,5 +1,17 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+
+const props = defineProps({
+  highlightRange: {
+    type: Array,
+    // default: 
+  }
+})
+
+const emits = defineEmits(['dateClick'])
+
+const dayArray = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const monthArray = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
 const today = ref(new Date())
 const month = ref(today.value.getMonth())
@@ -9,8 +21,9 @@ const isPresent = computed(() => month.value === today.value.getMonth() && year.
 const dates = computed(() => {
   const dates = []
   for (let d = new Date(year.value, month.value, 1); d.getMonth() === month.value; d.setDate(d.getDate() + 1)) {
-    dates.push([d.getDay(), d.getDate()])
+    dates.push([d.getDay(), d.getDate(), d.getTime()])
   }
+  console.log(dates);
   return dates
 })
 
@@ -52,19 +65,60 @@ function nextMonth() {
     month.value++
   }
 }
+
+onMounted(() => {
+  console.log('mounted')
+  console.log(props.highlightRange)
+})
+
+const highlightHoverIndex = ref(null)
+const handleHighlightHover = (e, index) => {
+  // e.stopPropagation()
+  console.log(index);
+  highlightHoverIndex.value = index
+}
 </script>
 
 <template>
-  <div>
-    <h1>{{ year }}-{{ month + 1 }}</h1>
-    <div class="grid grid-cols-7">
-      <div v-for="day in ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']" :key="day">{{ day }}</div>
-      <div v-for="date in datesBefore" :key="date[1]" class="opacity-50">{{ date[1] }}</div>
-      <div v-for="date in dates" :key="date[1]" :class="{ 'text-red-500': date[1] === today.getDate() && isPresent }">{{ date[1] }}</div>
-      <div v-for="date in datesAfter" :key="date[1]" class="opacity-50">{{ date[1] }}</div>
+  <div class="flex flex-col w-72 items-center bg-neutral rounded-2xl h-[15.5rem] select-none">
+    <div class="flex w-full my-2 justify-center">
+      <button @click="prevMonth">&ltcc;</button>
+      <div class="font-bold w-1/2 text-center">
+        <select v-model="month" class="w-fit appearance-none text-center bg-neutral focus:outline-none focus:bg-base-100 focus:rounded-md">
+          <option v-for="(month, index) in monthArray" :key="index" :value="index">{{ month }}</option>
+        </select> {{ year }}</div>
+      <button @click="nextMonth">&gtcc;</button>
     </div>
-    <button @click="prevMonth">Prev</button>
-    <button @click="nextMonth">Next</button>
+    <div class="grid grid-cols-7 grid-rows-6 gap-1 place-items-center">
+      <div v-for="day in dayArray" :key="day">{{ day }}</div>
+      <div v-for="date in datesBefore" @click="prevMonth" :key="date[1]" class="opacity-50 cursor-pointer hover:opacity-25">{{ date[1] }}</div>
+      <div 
+        v-for="date in dates"
+        :key="date[1]"
+        class="relative flex justify-center items-center w-full h-full cursor-pointer hover:opacity-50"
+        :class="{ 'bg-accent text-neutral rounded-md': date[1] === today.getDate() && isPresent }"
+        @click="$emit('dateClick', date[2])"
+      >
+        <div
+          v-for="(range, rangeIndex) in highlightRange"
+          v-show="date[2] >= range.start && date[2] <= range.end"
+          :key="rangeIndex"
+          class="absolute w-9 h-4 opacity-20"
+          :style="date[2] >= range.start && date[2] <= range.end ? { backgroundColor: range.color } : ''"
+          :class="{
+            'opacity-60 scale-105': highlightHoverIndex === rangeIndex,
+            'rounded-l-md': date[2] === range.start,
+            'rounded-r-md': date[2] === range.end,
+          }"
+          @mouseover="handleHighlightHover($event, rangeIndex)"
+          @mouseleave="highlightHoverIndex = null"
+          @click="e => e.preventDefault()"
+          :title="range.name"
+        ></div>
+        <div class="pointer-events-none absolute">{{ date[1] }}</div>
+      </div>
+      <div v-for="date in datesAfter" :key="date[1]" @click="nextMonth" class="opacity-50 cursor-pointer hover:opacity-25">{{ date[1] }}</div>
+    </div>
   </div>
 </template>
 
